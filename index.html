@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+  <title>Registrasi Wajah</title>
+
+  <script src="face-api.min.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+
+    body{
+      font-family: Arial;
+      text-align:center;
+      background:#f5f5f5;
+      padding:10px;
+      margin:0;
+    }
+
+    h2{
+      font-size:32px;
+      margin-top:10px;
+    }
+
+    #loadingText{
+      font-size:22px;
+      font-weight:bold;
+      margin-bottom:20px;
+    }
+
+    .container{
+      width:100%;
+      max-width:900px;
+      margin:auto;
+    }
+
+    video, canvas, img{
+      width:100%;
+      max-width:700px;
+      border:5px solid #333;
+      border-radius:20px;
+      background:black;
+      margin-top:10px;
+    }
+
+    input{
+      padding:15px;
+      margin:8px;
+      width:90%;
+      max-width:500px;
+      border-radius:12px;
+      border:1px solid #ccc;
+      font-size:18px;
+    }
+
+    button{
+      padding:15px 25px;
+      font-size:20px;
+      cursor:pointer;
+      border:none;
+      border-radius:12px;
+      margin:8px;
+      width:90%;
+      max-width:500px;
+    }
+
+    #statusIcon{
+      font-size:120px;
+      margin-top:20px;
+      display:none;
+    }
+
+    .success{
+      color:green;
+    }
+
+    .failed{
+      color:red;
+    }
+
+    /* LOADING OVERLAY */
+
+    #processLoading{
+
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background:rgba(0,0,0,0.8);
+
+      display:none;
+
+      justify-content:center;
+      align-items:center;
+      flex-direction:column;
+
+      z-index:9999;
+
+    }
+
+    .loader{
+
+      width:90px;
+      height:90px;
+
+      border:10px solid #f3f3f3;
+
+      border-top:10px solid #00ff88;
+
+      border-radius:50%;
+
+      animation:spin 1s linear infinite;
+
+      margin-bottom:20px;
+
+    }
+
+    @keyframes spin {
+
+      0%{
+        transform:rotate(0deg);
+      }
+
+      100%{
+        transform:rotate(360deg);
+      }
+
+    }
+
+    #loadingMessage{
+
+      color:white;
+
+      font-size:28px;
+
+      font-weight:bold;
+
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<!-- LOADING SCREEN -->
+
+<div id="processLoading">
+
+  <div class="loader"></div>
+
+  <div id="loadingMessage">
+    Memproses Wajah...
+  </div>
+
+</div>
+
+<div class="container">
+
+<h2>Registrasi Wajah Personel</h2>
+
+<h3 id="loadingText">
+  Loading AI Model...
+</h3>
+
+<input type="text" id="idpersonel" placeholder="ID Personel">
+
+<br>
+
+<input type="text" id="nama" placeholder="Nama Personel">
+
+<br>
+
+<input type="text" id="vendor" placeholder="Vendor">
+
+<br>
+
+<input type="text" id="jabatan" placeholder="Jabatan">
+
+<br><br>
+
+<video
+  id="video"
+  autoplay
+  muted
+  playsinline>
+</video>
+
+<img
+  id="previewImage"
+  style="display:none;"
+>
+
+<br><br>
+
+<input
+  type="file"
+  id="galleryInput"
+  accept="image/*"
+  style="display:none;"
+>
+
+<button onclick="startCamera()">
+  Aktifkan Kamera
+</button>
+
+<button onclick="switchCamera()">
+  Ganti Kamera Depan/Belakang
+</button>
+
+<button onclick="openGallery()">
+  Ambil dari Galeri
+</button>
+
+<button onclick="registerFace()">
+  Simpan Registrasi
+</button>
+
+<div id="statusIcon"></div>
+
+</div>
+
+<script>
+
+const video = document.getElementById("video");
+
+const previewImage =
+  document.getElementById("previewImage");
+
+const galleryInput =
+  document.getElementById("galleryInput");
+
+const processLoading =
+  document.getElementById("processLoading");
+
+let currentFacingMode = "user";
+
+let currentStream = null;
+
+/* =========================
+   SHOW/HIDE LOADING
+========================= */
+
+function showProcessing(){
+
+  processLoading.style.display = "flex";
+}
+
+function hideProcessing(){
+
+  processLoading.style.display = "none";
+}
+
+/* =========================
+   CAMERA
+========================= */
+
+async function startCamera() {
+
+  try {
+
+    if(currentStream){
+
+      currentStream.getTracks().forEach(track => {
+        track.stop();
+      });
+
+    }
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+          facingMode: currentFacingMode
+        },
+
+        audio:false
+
+      });
+
+    currentStream = stream;
+
+    video.srcObject = stream;
+
+    previewImage.style.display = "none";
+
+    video.style.display = "block";
+
+    console.log("CAMERA ON");
+
+  } catch(err){
+
+    console.error(err);
+
+    alert(
+      "Kamera gagal diakses. Pastikan izin kamera diaktifkan."
+    );
+
+  }
+}
+
+async function switchCamera(){
+
+  if(currentFacingMode === "user"){
+
+    currentFacingMode = "environment";
+
+  } else {
+
+    currentFacingMode = "user";
+
+  }
+
+  startCamera();
+}
+
+/* =========================
+   GALLERY
+========================= */
+
+function openGallery(){
+
+  galleryInput.click();
+}
+
+galleryInput.addEventListener("change", function(event){
+
+  const file = event.target.files[0];
+
+  if(!file) return;
+
+  const imageURL = URL.createObjectURL(file);
+
+  previewImage.src = imageURL;
+
+  previewImage.style.display = "block";
+
+  video.style.display = "none";
+
+});
+
+/* =========================
+   LOAD AI
+========================= */
+
+async function loadModels() {
+
+  try {
+
+    document.getElementById("loadingText")
+      .innerHTML = "Loading AI Model...";
+
+    await faceapi.nets.tinyFaceDetector
+      .loadFromUri('./models');
+
+    await faceapi.nets.faceLandmark68Net
+      .loadFromUri('./models');
+
+    await faceapi.nets.faceRecognitionNet
+      .loadFromUri('./models');
+
+    console.log("MODEL LOADED");
+
+    document.getElementById("loadingText")
+      .innerHTML = "AI Ready ✅";
+
+  } catch(err){
+
+    console.error(err);
+
+    document.getElementById("loadingText")
+      .innerHTML = "Model gagal dimuat ❌";
+
+  }
+}
+
+window.onload = () => {
+
+  loadModels();
+
+};
+
+/* =========================
+   STATUS ICON
+========================= */
+
+function showSuccess(){
+
+  const status = document.getElementById("statusIcon");
+
+  status.style.display = "block";
+
+  status.className = "success";
+
+  status.innerHTML = "✅";
+
+  setTimeout(() => {
+
+    status.style.display = "none";
+
+  }, 3000);
+
+}
+
+function showFailed(){
+
+  const status = document.getElementById("statusIcon");
+
+  status.style.display = "block";
+
+  status.className = "failed";
+
+  status.innerHTML = "❌";
+
+  setTimeout(() => {
+
+    status.style.display = "none";
+
+  }, 3000);
+
+}
+
+/* =========================
+   REGISTER FACE
+========================= */
+
+async function registerFace() {
+
+  const idpersonel =
+    document.getElementById("idpersonel").value;
+
+  const nama =
+    document.getElementById("nama").value;
+
+  const vendor =
+    document.getElementById("vendor").value;
+
+  const jabatan =
+    document.getElementById("jabatan").value;
+
+  if(
+    !idpersonel ||
+    !nama ||
+    !vendor ||
+    !jabatan
+  ){
+
+    alert("Lengkapi data");
+
+    showFailed();
+
+    return;
+  }
+
+  try {
+
+    showProcessing();
+
+    let inputSource;
+
+    if(previewImage.style.display === "block"){
+
+      inputSource = previewImage;
+
+    } else {
+
+      inputSource = video;
+
+    }
+
+    const detection = await faceapi
+      .detectSingleFace(
+        inputSource,
+        new faceapi.TinyFaceDetectorOptions()
+      )
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if(!detection){
+
+      hideProcessing();
+
+      alert("Wajah tidak terdeteksi");
+
+      showFailed();
+
+      return;
+    }
+
+    const descriptor =
+      Array.from(detection.descriptor);
+
+    await fetch(
+      "https://script.google.com/macros/s/AKfycbzkPl0b6rjfSiXG1X5Ih08VphM7VDGra9hcBy2fWToXoliIOjc1rxz6Go-JwAOClKaj/exec",
+      {
+
+        method: "POST",
+
+        mode: "no-cors",
+
+        body: new URLSearchParams({
+
+          idpersonel:idpersonel,
+
+          nama:nama,
+
+          vendor:vendor,
+
+          jabatan:jabatan,
+
+          descriptor:JSON.stringify(descriptor)
+
+        })
+
+      }
+    );
+
+    hideProcessing();
+
+    showSuccess();
+
+    alert("Registrasi berhasil");
+
+    document.getElementById("idpersonel").value = "";
+    document.getElementById("nama").value = "";
+    document.getElementById("vendor").value = "";
+    document.getElementById("jabatan").value = "";
+
+  } catch(err){
+
+    console.error(err);
+
+    hideProcessing();
+
+    showFailed();
+
+    alert("Gagal registrasi");
+
+  }
+}
+
+</script>
+
+</body>
+</html>
